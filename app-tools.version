@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Version BuildValueType="FullDate">
+  <Files>
+    <File>lib/app_tools/version.rb</File>
+  </Files>
+  <Tags>
+    <Major>1</Major>
+    <Minor>0</Minor>
+    <Patch>0</Patch>
+    <Build>20160122</Build>
+    <Revision>1</Revision>
+    <TimeZone>US/Pacific</TimeZone>
+    <StartYear>2015</StartYear>
+    <Company>John Lyon-Smith</Company>
+    <Product>Mobile App Development Tools</Product>
+    <Copyright>Copyright (c) 2016, John Lyon-Smith</Copyright>
+  </Tags>
+</Version>
