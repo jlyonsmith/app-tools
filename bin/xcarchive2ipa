@@ -53,7 +53,7 @@ module AppTools
         FileUtils.rm ipa_path
       end
 
-      `cd #{tmp_path}; zip #{ipa_rel_path} *`
+      `cd #{tmp_path}; zip -r #{ipa_rel_path} *`
       FileUtils.rm_rf tmp_path
       puts ipa_path
     end
