@@ -1,9 +1,9 @@
 require 'minitest/autorun'
 
-class TestXcarchive2Ipa < Minitest::Test
+class TestResignIpa < Minitest::Test
 
   def setup()
-    @app_name = 'xcarchive2ipa'
+    @app_name = 'resignipa'
     @bin_dir = File.expand_path(File.join(File.dirname(__FILE__), '../bin'))
     @test_dir = File.expand_path(File.join(File.dirname(__FILE__), @app_name))
   end

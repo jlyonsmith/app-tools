@@ -1,0 +1,34 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'methadone'
+require 'app_tools/version'
+require 'fileutils'
+
+#
+# This project is an extraction and rewrite in Ruby of
+# https://github.com/drewcrawford/CaveJohnson/blob/master/cavejohnson/__init__.py#L122
+#
+
+module AppTools
+  module ResignIpa
+    include Methadone::Main
+    include Methadone::CLILogging
+    include Methadone::ExitNow
+
+    main do |ipa_path|
+      if ipa_path.nil? or !File.exist?(ipa_path) or !File.extname(ipa_path) == '.ipa'
+        exit_now! "Must supply a .ipa path to process"
+      end
+    end
+
+    description 'resignipa - Resign an IPA with a certificate and provisioning profile'
+    version AppTools::VERSION
+
+    arg :ipa_path, "An IPA path", :require
+
+    use_log_level_option :toggle_debug_on_signal => 'USR1'
+
+    go!
+  end
+end

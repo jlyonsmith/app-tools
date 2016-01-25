@@ -1,2 +1,4 @@
 #!/usr/bin/env ruby
 puts "xcarchive2ipa - Generate IPA from XCArchive"
+puts "upload2itunes - Upload an IPA to iTunesConnect"
+puts "resignipa - Resign an IPA file"

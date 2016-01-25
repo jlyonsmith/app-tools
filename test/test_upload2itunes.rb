@@ -1,9 +1,9 @@
 require 'minitest/autorun'
 
-class TestXcarchive2Ipa < Minitest::Test
+class TestUpload2Itunes < Minitest::Test
 
   def setup()
-    @app_name = 'xcarchive2ipa'
+    @app_name = 'upload2itunes'
     @bin_dir = File.expand_path(File.join(File.dirname(__FILE__), '../bin'))
     @test_dir = File.expand_path(File.join(File.dirname(__FILE__), @app_name))
   end

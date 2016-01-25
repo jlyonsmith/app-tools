@@ -1,0 +1,101 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'methadone'
+require 'app_tools/version'
+require 'fileutils'
+require 'cfpropertylist'
+require 'zip'
+
+#
+# This project is an extraction and rewrite in Ruby of
+# https://github.com/drewcrawford/CaveJohnson/blob/master/cavejohnson/__init__.py#L122
+#
+
+module AppTools
+  module Upload2Itunes
+    include Methadone::Main
+    include Methadone::CLILogging
+    include Methadone::ExitNow
+
+    main do |ipa_path|
+      if ipa_path.nil? or !File.exist?(ipa_path) or !File.extname(ipa_path) == '.ipa'
+        exit_now! "Must supply a .ipa path to process"
+      end
+
+      # Create working variables
+      app_base_name = ipa_path[0...-4]
+      package_path = File.dirname(ipa_path) + '/' + app_base_name + '.itmsp'
+
+      if Dir.exists?(package_path)
+        FileUtils.rm_rf package_path
+      end
+
+      FileUtils.mkdir package_path
+
+      plist_data = nil
+
+      Zip::File.open(ipa_path) do |zip_file|
+        entry = zip_file.glob('Payload/*/Info.plist').first
+        plist = CFPropertyList::List.new(:data => entry.get_input_stream.read)
+        plist_data = CFPropertyList.native_types(plist.value)
+      end
+
+      itunes_app_id = options[:itunes_app_id]
+      short_bundle_version = plist_data['CFBundleShortVersionString']
+      bundle_version = plist_data['CFBundleVersion']
+      bundle_identifier = plist_data['CFBundleIdentifier']
+      ipa_name = File.basename(ipa_path)
+      md5 = `md5 -q #{ipa_path}`
+      file_size = `stat -f "%z" #{ipa_path}`
+
+      metadata_xml = %Q(<?xml version="1.0" encoding="UTF-8"?>
+<package version="software5.2" xmlns="http://apple.com/itunes/importer">
+    <software_assets apple_id="#{itunes_app_id}"
+        bundle_short_version_string="#{short_bundle_version}"
+        bundle_version="#{bundle_version}"
+        bundle_identifier="#{bundle_identifier}">
+        <asset type="bundle">
+            <data_file>
+                <file_name>#{ipa_name}</file_name>
+                <checksum type="md5">#{md5}</checksum>
+                <size>#{file_size}</size>
+            </data_file>
+        </asset>
+    </software_assets>
+</package>)
+
+      File.open(package_path + '/metadata.xml', 'w') { |file| file.write(metadata_xml) }
+
+      itmstransporter = "/Applications/Xcode.app/Contents/Applications/Application Loader.app/Contents/itms/bin/iTMSTransporter"
+
+      itunes_user = options[:itunes_user]
+      itunes_password = options[:itunes_password]
+
+      if itunes_password.nil?
+        itunes_password = IO.popen(['security', 'find-generic-password', '-a', itunes_user, '-s', "iTunesConnect - #{itunes_user}", '-w'])
+      end
+
+      IO.popen("'#{itmstransporter}' -m upload -apple_id #{itunes_app_id} -u #{itunes_user} -p #{itunes_password} -f #{package_path}") do |io|
+        while not io.eof?
+          puts io.readline()
+        end
+      end
+
+      $?.exitstatus
+    end
+
+    description 'upload2itunes - Upload an IPA file to iTunesConnect'
+    version AppTools::VERSION
+
+    on("-u", "--itunes-user USER", "The iTunes user name")
+    on("-i", "--itunes-app-id APP_ID", "The iTunes app ID")
+    on("-p", "--itunes-password PASSWORD", "The iTunes user password. If not supplied keychain entry with name 'iTunesConnect - USER' is used. ")
+
+    arg :ipa_path, "An IPA path", :require
+
+    use_log_level_option :toggle_debug_on_signal => 'USR1'
+
+    go!
+  end
+end

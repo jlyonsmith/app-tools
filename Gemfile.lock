@@ -1,12 +1,15 @@
 PATH
   remote: .
   specs:
-    app-tools (1.0.0)
-      methadone (~> 1.9.2)
+    app-tools (1.0.1)
+      CFPropertyList (~> 2.3)
+      methadone (~> 1.9)
+      rubyzip (~> 1.1)
 
 GEM
   remote: https://rubygems.org/
   specs:
+    CFPropertyList (2.3.2)
     code-tools (5.0.0)
       methadone (~> 1.9)
       nokogiri (~> 1.6)
@@ -17,6 +20,7 @@ GEM
     nokogiri (1.6.7.1)
       mini_portile2 (~> 2.0.0.rc2)
     rake (10.4.2)
+    rubyzip (1.1.7)
     thread_safe (0.3.5)
     tzinfo (1.2.2)
       thread_safe (~> 0.1)
@@ -27,7 +31,7 @@ PLATFORMS
 DEPENDENCIES
   app-tools!
   bundler (~> 1.10)
-  code-tools (~> 5.0.0)
+  code-tools (~> 5.0)
   rake (~> 10.0)
 
 BUNDLED WITH

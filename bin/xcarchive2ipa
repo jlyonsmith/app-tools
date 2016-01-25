@@ -12,13 +12,13 @@ require 'fileutils'
 #
 
 module AppTools
-  module Xcarchive2ipa
+  module Xcarchive2Ipa
     include Methadone::Main
     include Methadone::CLILogging
     include Methadone::ExitNow
 
     main do |xcarchive_path|
-      if xcarchive_path.nil? or !File.exist?(xcarchive_path)
+      if xcarchive_path.nil? or !Dir.exist?(xcarchive_path) or !File.extname(xcarchive_path) == '.xcarchive'
         exit_now! "Must supply a .xcarchive path to process"
       end
 

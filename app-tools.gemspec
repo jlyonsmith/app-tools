@@ -20,8 +20,10 @@ These tools are based the CaveJohnson toolset.
   s.required_ruby_version = '~> 2.0'
   s.files = `git ls-files -- lib/*`.split("\n")
   s.executables = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
-  s.add_development_dependency "bundler", "~> 1.10"
-  s.add_development_dependency "rake", "~> 10.0"
-  s.add_development_dependency('code-tools', '~> 5.0.0')
-  s.add_dependency('methadone', '~> 1.9.2')
+  s.add_development_dependency 'bundler', '~> 1.10'
+  s.add_development_dependency 'rake', '~> 10.0'
+  s.add_development_dependency('code-tools', '~> 5.0')
+  s.add_dependency('methadone', '~> 1.9')
+  s.add_dependency('CFPropertyList', '~> 2.3')
+  s.add_dependency('rubyzip', '~> 1.1')
 end
