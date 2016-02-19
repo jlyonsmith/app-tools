@@ -78,7 +78,7 @@ module AppTools
         end
       end
 
-      safe_password = itunes_password.gsub(/[&:^><])/) { |s| '\'}
+      safe_password = itunes_password.gsub(/[&:^><])/) { |s| "\\"}
       IO.popen([itmstransporter, '-m', 'upload', '-apple_id', itunes_app_id, '-u', itunes_user, '-p', safe_password, '-f', package_path]) do |io|
         while not io.eof?
           puts io.readline()

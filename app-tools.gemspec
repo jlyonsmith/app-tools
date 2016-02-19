@@ -26,4 +26,5 @@ These tools are based the CaveJohnson toolset.
   s.add_dependency('methadone', '~> 1.9')
   s.add_dependency('CFPropertyList', '~> 2.3')
   s.add_dependency('rubyzip', '~> 1.1')
+  s.add_dependency('spaceship', '~> 0.19')
 end
