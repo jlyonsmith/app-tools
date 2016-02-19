@@ -73,12 +73,12 @@ module AppTools
       itunes_password = options[:itunes_password]
 
       if itunes_password.nil?
-        IO.popen(['security', 'find-generic-password', '-a', itunes_user, '-s', "iTunesConnect - #{itunes_user}", '-w']) do |io|
+        IO.popen(['security', 'find-generic-password', '-s', "app-tools-itunesconnect", '-w']) do |io|
           itunes_password = io.read.chop
         end
       end
 
-      safe_password = itunes_password.gsub(/[&:^><])/) { |s| "\\"}
+      safe_password = itunes_password.gsub(/[&:^><]/) { |s| "\\"}
       IO.popen([itmstransporter, '-m', 'upload', '-apple_id', itunes_app_id, '-u', itunes_user, '-p', safe_password, '-f', package_path]) do |io|
         while not io.eof?
           puts io.readline()
@@ -91,9 +91,9 @@ module AppTools
     description 'upload2itunes - Upload an IPA file to iTunesConnect'
     version AppTools::VERSION
 
-    on("-u", "--itunes_user USER", "The iTunes user name")
-    on("-i", "--itunes_app_id APP_ID", "The iTunes app ID")
-    on("-p", "--itunes_password PASSWORD", "The iTunes user password. If not supplied keychain entry with name 'iTunesConnect - USER' is used. ")
+    on("-u", "--itunes-user USER", "The iTunes user name")
+    on("-i", "--itunes-app-id APP_ID", "The iTunes app ID")
+    on("-p", "--itunes-password PASSWORD", "The iTunes user password. If not supplied keychain entry with name 'app-tools-itunesconnec' is used.")
 
     arg :ipa_path, "An IPA path", :require
 

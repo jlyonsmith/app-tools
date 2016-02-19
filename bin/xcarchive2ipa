@@ -18,7 +18,7 @@ module AppTools
     include Methadone::ExitNow
 
     main do |xcarchive_path|
-      if xcarchive_path.nil? or !Dir.exist?(xcarchive_path) or !File.extname(xcarchive_path) == '.xcarchive'
+      if !Dir.exist?(xcarchive_path) or !File.extname(xcarchive_path) == '.xcarchive'
         exit_now! "Must supply a .xcarchive path to process"
       end
 
@@ -58,7 +58,7 @@ module AppTools
       puts ipa_path
     end
 
-    description 'xcharchive2ipa - Create an iTunesConnect uploadable .ipa files from your .xcarchive'
+    description 'xcarchive2ipa - Create an iTunesConnect uploadable .ipa files from your .xcarchive'
     version AppTools::VERSION
 
     arg :xcarchive_path, "An XCArchive path", :require

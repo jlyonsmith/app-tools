@@ -1,0 +1,77 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'bundler/setup'
+require 'methadone'
+require 'app_tools/version'
+require 'fileutils'
+require 'highline'
+
+module AppTools
+  module KcPass
+    include Methadone::Main
+    include Methadone::CLILogging
+    include Methadone::ExitNow
+
+    main do |action|
+      itunes_password = options[:p]
+      itunes_user = options[:u]
+      cli = HighLine.new
+      name = "app-tools-itunesconnect"
+
+      case action
+        when 'add'
+          if itunes_user.nil?
+            exit_now! "Must supply an iTunesConnect user email"
+          end
+
+          if itunes_password.nil?
+            itunes_password = cli.ask("Password:") { |q| q.echo = 'x' }
+          end
+
+          pid = Process.spawn('security', 'add-generic-password', '-a', itunes_user, '-w', itunes_password, '-s', name, '-A')
+          Process.wait(pid)
+
+          if $?.exitstatus == 0
+            info "Successfully added generic password for '#{name}'"
+          else
+            error "Unable to add password for '#{name}'"
+          end
+        when 'delete'
+          pid = Process.spawn('security', 'delete-generic-password', '-s', name)
+          Process.wait pid
+
+          if $?.exitstatus == 0
+            info "Deleted generic password '#{name}'"
+          else
+            error "Could not find generic password '#{name}'"
+          end
+        when 'password'
+          r, w = IO.pipe
+          pid = Process.spawn('security', 'find-generic-password', '-s', name, '-w', :out => w)
+          w.close
+          Process.wait(pid)
+          if $?.exitstatus != 0
+            exit_now! "Could not find generic password '#{name}'"
+          end
+          itunes_password = r.read
+          r.close
+          puts itunes_password
+        else
+          exit_now! "Unknown command #{action}"
+      end
+    end
+
+    description 'kcpass - Adds, removes or finds generic keychain password for use by app-tools'
+    version AppTools::VERSION
+
+    on("-u", "--itunes-user USER", "iTunesConnect user")
+    on("-p", "--itunes-password PASSWORD", "iTunesConnect password")
+
+    arg :action, "An action either add, delete or password", :require
+
+    use_log_level_option :toggle_debug_on_signal => 'USR1'
+
+    go!
+  end
+end

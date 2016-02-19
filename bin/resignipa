@@ -45,16 +45,13 @@ module AppTools
       entitlements_app_id = entitlements_data["Entitlements"]["application-identifier"]
       ipa_app_id = ipa_plist_data["CFBundleIdentifier"]
 
-      if not entitlements_app_id.endswith(ipa_app_id):
+      if not entitlements_app_id.endswith(ipa_app_id)
           exit_now!("Entitlements app id #{entitlements_app_id} doesn't match Info.plist identifier #{ipa_app_id}")
       end
 
       # TODO: Random number here
       temp_dir = File.join(ipa_dir, "123456")
       FileUtils.mkdir temp_dir
-
-
-
     end
 
     description 'resignipa - Resign an IPA with a certificate and provisioning profile'
