@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'rubygems'
+require 'bundler/setup'
 require 'methadone'
 require 'app_tools/version'
 require 'fileutils'
@@ -61,16 +62,13 @@ module AppTools
       ## Unzip the existing IPA into the temp dir
       `unzip #{ipa_path} -d #{temp_dir}`
 
-      ## Get the app dir
-      app_dirs = Dir.glob(File.join(temp_dir, "Payload/*.app"))
-
-      unless app_dirs.count == 1
-        exit_now! "Multiple .app's found in .ipa!"
-      end
-
-      app_dir = app_dirs[0]
+      ## Get all dirs to be signed
+      # See http://www.xgiovio.com/blog-photos-videos-other/blog/resign-your-ios-ipa-frameworks-and-plugins-included/
+      payload_dir = File.join(temp_dir, "Payload")
+      sign_dirs = `find -d #{payload_dir} \\( -name \\*.app -o -name \\*.framework -o -name \\*.appex -name \\*.dylib \\)`.split("\n")
 
       ## Embed the new provisioning profile
+      app_dir = `find -d #{payload_dir} -name \\*.app`.split("\n")
       FileUtils.cp profile_path, File.join(app_dir, "embedded.mobileprovision")
 
       ## Write the entitlements file
@@ -79,11 +77,18 @@ module AppTools
           entitlements_data["Entitlements"].to_plist(:plist_format => CFPropertyList::List::FORMAT_XML))
 
       ## Finally, resign all the files
-      pid = Process.spawn("codesign", "--entitlements", entitlements_path, "-f", "-s", "iPhone Distribution: " + options[:c], app_dir)
-      Process.wait(pid)
+      sign_dirs.each do |sign_dir|
+        if sign_dir.end_with?(".framework") or sign_dir.end_with?(".dylib")
+          # See https://github.com/fastlane/sigh/blob/master/lib/assets/resign.sh#L412
+          pid = Process.spawn("codesign", "-f", "-s", "iPhone Distribution: " + options[:c], sign_dir)
+        else
+          pid = Process.spawn("codesign", "-f", "-s", "iPhone Distribution: " + options[:c], "--entitlements", entitlements_path, sign_dir)
+        end
+        Process.wait(pid)
 
-      unless $?.exitstatus == 0
-        exit_now! "Failed to sign the files"
+        unless $?.exitstatus == 0
+          exit_now! "Failed to sign files in #{sign_dir}"
+        end
       end
 
       ## Repack

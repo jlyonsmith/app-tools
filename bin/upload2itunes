@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'rubygems'
+require 'bundler/setup'
 require 'methadone'
 require 'app_tools/version'
 require 'fileutils'
@@ -24,14 +25,11 @@ module AppTools
       end
 
       # Create working variables
-      app_base_name = ipa_path[0...-4]
-      package_path = File.dirname(ipa_path) + '/' + app_base_name + '.itmsp'
+      ipa_basename = File.basename(ipa_path)
+      itmsp_path = File.dirname(ipa_path) + '/' + ipa_basename[0...-4] + '.itmsp'
 
-      if Dir.exists?(package_path)
-        FileUtils.rm_rf package_path
-      end
-
-      FileUtils.mkdir package_path
+      FileUtils.rm_rf itmsp_path
+      FileUtils.mkdir itmsp_path
 
       plist_data = nil
 
@@ -41,13 +39,16 @@ module AppTools
         plist_data = CFPropertyList.native_types(plist.value)
       end
 
-      itunes_app_id = options[:itunes_app_id]
+      itunes_app_id = options[:i]
       short_bundle_version = plist_data['CFBundleShortVersionString']
       bundle_version = plist_data['CFBundleVersion']
       bundle_identifier = plist_data['CFBundleIdentifier']
-      ipa_name = File.basename(ipa_path)
-      md5 = `md5 -q #{ipa_path}`.chop
-      file_size = `stat -f "%z" #{ipa_path}`.chop
+      new_ipa_path = File.join(itmsp_path, ipa_basename)
+
+      FileUtils.cp ipa_path, new_ipa_path
+
+      md5 = `md5 -q #{new_ipa_path}`.chop
+      file_size = `stat -f "%z" #{new_ipa_path}`.chop
 
       metadata_xml = %Q(<?xml version="1.0" encoding="UTF-8"?>
 <package version="software5.2" xmlns="http://apple.com/itunes/importer">
@@ -57,7 +58,7 @@ module AppTools
         bundle_identifier="#{bundle_identifier}">
         <asset type="bundle">
             <data_file>
-                <file_name>#{ipa_name}</file_name>
+                <file_name>#{ipa_basename}</file_name>
                 <checksum type="md5">#{md5}</checksum>
                 <size>#{file_size}</size>
             </data_file>
@@ -65,12 +66,12 @@ module AppTools
     </software_assets>
 </package>)
 
-      File.open(package_path + '/metadata.xml', 'w') { |file| file.write(metadata_xml) }
+      File.open(itmsp_path + '/metadata.xml', 'w') { |file| file.write(metadata_xml) }
 
       itmstransporter = "/Applications/Xcode.app/Contents/Applications/Application Loader.app/Contents/itms/bin/iTMSTransporter"
 
-      itunes_user = options[:itunes_user]
-      itunes_password = options[:itunes_password]
+      itunes_user = options[:u]
+      itunes_password = options[:p]
 
       if itunes_password.nil?
         IO.popen(['security', 'find-generic-password', '-s', "app-tools-itunesconnect", '-w']) do |io|
@@ -78,14 +79,15 @@ module AppTools
         end
       end
 
-      safe_password = itunes_password.gsub(/[&:^><]/) { |s| "\\"}
-      IO.popen([itmstransporter, '-m', 'upload', '-apple_id', itunes_app_id, '-u', itunes_user, '-p', safe_password, '-f', package_path]) do |io|
+      safe_password = itunes_password.gsub(/([&:^><])/) { |s| "\\\\1"}
+      IO.popen([itmstransporter, '-m', 'upload', '-u', itunes_user, '-p', safe_password, '-f', itmsp_path]) do |io|
         while not io.eof?
           puts io.readline()
         end
       end
-
-      $?.exitstatus
+      exitstatus = $?.exitstatus
+      FileUtils.rm_rf itmsp_path
+      exitstatus
     end
 
     description 'upload2itunes - Upload an IPA file to iTunesConnect'
