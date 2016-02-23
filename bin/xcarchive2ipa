@@ -5,6 +5,7 @@ require 'bundler/setup'
 require 'methadone'
 require 'app_tools/version'
 require 'fileutils'
+require 'zip'
 
 #
 # This project is an extraction and rewrite in Ruby of

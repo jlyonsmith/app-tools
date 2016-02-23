@@ -91,9 +91,9 @@ module AppTools
     description 'upload2itunes - Upload an IPA file to iTunesConnect'
     version AppTools::VERSION
 
-    on("-u", "--itunes-user USER", "The iTunes user name")
-    on("-i", "--itunes-app-id APP_ID", "The iTunes app ID")
-    on("-p", "--itunes-password PASSWORD", "The iTunes user password. If not supplied keychain entry with name 'app-tools-itunesconnec' is used.")
+    on("-u", "--itunes-user USER", "The iTunesConnect user name")
+    on("-i", "--itunes-app-id APP_ID", "The iTunesConnect app ID")
+    on("-p", "--itunes-password PASSWORD", "The iTunes user password. If not supplied keychain entry with the name 'app-tools-itunesconnect' is used.")
 
     arg :ipa_path, "An IPA path", :require
 

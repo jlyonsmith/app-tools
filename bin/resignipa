@@ -4,6 +4,8 @@ require 'rubygems'
 require 'methadone'
 require 'app_tools/version'
 require 'fileutils'
+require 'cfpropertylist'
+require 'zip'
 
 #
 # This project is an extraction and rewrite in Ruby of
@@ -17,23 +19,23 @@ module AppTools
     include Methadone::ExitNow
 
     main do |ipa_path|
-      if ipa_path.nil? or !File.exist?(ipa_path) or !File.extname(ipa_path) == '.ipa'
-        exit_now! "Must supply a .ipa path to process"
+      unless File.exist?(ipa_path) and File.extname(ipa_path) == '.ipa'
+        exit_now! "Must supply an .ipa path to process"
       end
 
-      ipa_dir = File.dirname(ipa_path)
-      cert_name = options[:certificate_name]
-      new_ipa_dir = File.join(ipa_dir, cert_name)
+      ipa_basename = File.basename(ipa_path)
+      profile_path = options[:p]
 
-      FileUtils.rm_rf new_ipa_dir
-      FileUtils.mkdir new_ipa_dir
+      unless File.exist?(profile_path)
+        exit_now! "Must supply a valid provisioning profile"
+      end
 
-      new_ipa_path = File.join(new_ipa_dir, File.basename(ipa_path))
+      ## Extract the entitlements from the provisioning profile
+      entitlements_xml =`security cms -D -i "#{profile_path}"`
+      entitlements_plist = CFPropertyList::List.new(:data => entitlements_xml)
+      entitlements_data = CFPropertyList.native_types(entitlements_plist.value)
 
-      entitlements_text = `security cms -D -i #{new_mobileprovision_path}`
-      entitlements_plist = CFPropertyList::List.new(:data => entitlements_text)
-      entitlements_plist_data = CFPropertyList.native_types(plist.value)
-
+      ## Get the app PList
       ipa_plist_data = nil
 
       Zip::File.open(ipa_path) do |zip_file|
@@ -42,24 +44,66 @@ module AppTools
         ipa_plist_data = CFPropertyList.native_types(plist.value)
       end
 
+      ## Make sure app id and entitlements id match
       entitlements_app_id = entitlements_data["Entitlements"]["application-identifier"]
       ipa_app_id = ipa_plist_data["CFBundleIdentifier"]
 
-      if not entitlements_app_id.endswith(ipa_app_id)
+      unless entitlements_app_id.end_with?(ipa_app_id)
           exit_now!("Entitlements app id #{entitlements_app_id} doesn't match Info.plist identifier #{ipa_app_id}")
       end
 
-      # TODO: Random number here
-      temp_dir = File.join(ipa_dir, "123456")
+      ## Creating a temp dir to work in
+      temp_dir = File.join(File.dirname(ipa_path), ipa_basename + '.tmp')
+
+      FileUtils.rm_rf temp_dir
       FileUtils.mkdir temp_dir
+
+      ## Unzip the existing IPA into the temp dir
+      `unzip #{ipa_path} -d #{temp_dir}`
+
+      ## Get the app dir
+      app_dirs = Dir.glob(File.join(temp_dir, "Payload/*.app"))
+
+      unless app_dirs.count == 1
+        exit_now! "Multiple .app's found in .ipa!"
+      end
+
+      app_dir = app_dirs[0]
+
+      ## Embed the new provisioning profile
+      FileUtils.cp profile_path, File.join(app_dir, "embedded.mobileprovision")
+
+      ## Write the entitlements file
+      entitlements_path = File.join(temp_dir, "entitlements.plist")
+      File.write(entitlements_path,
+          entitlements_data["Entitlements"].to_plist(:plist_format => CFPropertyList::List::FORMAT_XML))
+
+      ## Finally, resign all the files
+      pid = Process.spawn("codesign", "--entitlements", entitlements_path, "-f", "-s", "iPhone Distribution: " + options[:c], app_dir)
+      Process.wait(pid)
+
+      unless $?.exitstatus == 0
+        exit_now! "Failed to sign the files"
+      end
+
+      ## Repack
+      new_ipa_dir = File.join(File.dirname(ipa_path), ipa_basename + ".resigned")
+      new_ipa_path = File.join(new_ipa_dir, File.basename(ipa_path))
+      FileUtils.rm_rf new_ipa_dir
+      FileUtils.mkdir new_ipa_dir
+
+      `cd #{temp_dir}; zip -r ../#{ipa_basename + ".resigned"}/#{ipa_basename} *`
+      FileUtils.rm_rf temp_dir
+      puts new_ipa_path
     end
 
     description 'resignipa - Resign an IPA with a certificate and provisioning profile'
     version AppTools::VERSION
 
+    on("-p", "--provisioning-profile PROFILE_PATH", "File name of the provisioning profile")
     on("-c", "--certificate-name CERTIFICATE_NAME", "Name of the certificate to use for signing")
 
-    arg :ipa_path, "An IPA path", :require
+    arg :ipa_path, "Original IPA file", :require
 
     use_log_level_option :toggle_debug_on_signal => 'USR1'
 

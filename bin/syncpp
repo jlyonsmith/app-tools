@@ -17,28 +17,71 @@ module AppTools
     include Methadone::CLILogging
     include Methadone::ExitNow
 
-    main do |ipa_path|
-      if ipa_path.nil? or !File.exist?(ipa_path) or !File.extname(ipa_path) == '.ipa'
-        exit_now! "Must supply a .ipa path to process"
+    main do |profile_name|
+      itunes_user = options[:u]
+      itunes_password = options[:p]
+      name = "app-tools-itunesconnect"
+
+      if itunes_user.nil?
+        exit_now! "Must supply a user name"
       end
 
-      cert_name = options[:certificate_name]
-      new_ipa_dir = File.join(File.dirname(ipa_path), cert_name)
+      if itunes_password.nil?
+        r, w = IO.pipe
+        pid = Process.spawn('security', 'find-generic-password', '-s', name, '-w', :out => w)
+        w.close
+        Process.wait(pid)
+        if $?.exitstatus != 0
+          exit_now! "Could not find generic password '#{name}'"
+        end
+        itunes_password = r.read.chomp
+        r.close
+      end
 
-      FileUtils.rm_rf new_ipa_dir
-      FileUtils.mkdir new_ipa_dir
+      if itunes_password.nil?
+        exit_now! "No password given and non found in keychain"
+      end
 
-      new_ipa_path = File.join(new_ipa_dir, File.basename(ipa_path))
+      Spaceship.login(itunes_user, itunes_password)
 
-      entitlements_plist = `security cms -D -i #{new_mobileprovision_path}`
+      profile = Spaceship.provisioning_profile.app_store.all.find do |profile|
+        profile.name == profile_name
+      end
+
+      if profile.nil?
+        exit_now! "Provisioning profile #{profile_name} not found"
+      end
+
+      if profile.type != 'iOS Distribution'
+        exit_now! "The profile must use an iOS distribution certificate"
+      end
+
+      unless profile.valid?
+        profile.repair!
+      end
+
+      profile_prod_cert = profile.certificates.find do |cert|
+        cert.name == profile.type
+      end
+
+      prod_cert = Spaceship.certificate.production.all.find do |cert|
+        cert.id == profile.certificates.first.id
+      end
+
+      profile_path = "#{profile_name}.mobileprovision"
+
+      File.write(profile_path, profile.download)
+
+      puts prod_cert.name
     end
 
-    description 'resignipa - Resign an IPA with a certificate and provisioning profile'
+    description 'syncpp - Synchronize a certificate and provisioning profile'
     version AppTools::VERSION
 
-    on("-c", "--certificate-name CERTIFICATE_NAME", "Name of the certificate to use for signing")
+    on("-u", "--itunes-user USER", "iTunesConnect user")
+    on("-p", "--itunes-password PASSWORD", "iTunesConnect password")
 
-    arg :ipa_path, "An IPA path", :require
+    arg :profile_name, "Profile name", :required
 
     use_log_level_option :toggle_debug_on_signal => 'USR1'
 
