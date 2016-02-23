@@ -91,6 +91,9 @@ module AppTools
         end
       end
 
+      ## Clean-up a bit
+      FileUtils.rm entitlements_path
+
       ## Repack
       new_ipa_dir = File.join(File.dirname(ipa_path), ipa_basename + ".resigned")
       new_ipa_path = File.join(new_ipa_dir, File.basename(ipa_path))
