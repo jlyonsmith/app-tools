@@ -1,7 +1,7 @@
 task :default => :test
 
 VERSION = '1.1.0'
-BUILD = '20160223.1'
+BUILD = '20160223.2'
 
 task :test do
   Dir.glob('./test/test_*.rb').each { |file| require file}
@@ -11,6 +11,7 @@ task :vamper do
   `vamper -u`
   `git add :/`
   `git commit -m 'Update version info'`
+  puts "Updated version to #{VERSION}-#{BUILD}"
 end
 
 task :release do
