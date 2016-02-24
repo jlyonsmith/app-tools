@@ -1,3 +1,7 @@
+#!/usr/bin/osascript
+
+# See https://github.com/paypal/Illuminator/blob/master/gem/resources/scripts/set_hardware_keyboard.applescript
+
 on run argv
 
 tell application "Simulator" to launch
