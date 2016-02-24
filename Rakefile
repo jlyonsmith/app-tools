@@ -16,8 +16,10 @@ end
 
 task :release do
   `git tag -a 'v#{VERSION}' -m 'Release v#{VERSION}-#{BUILD}'`
+  puts "Pushing tags to GitHub..."
   `git push --follow-tags`
   `rm *.gem`
   `gem build app-tools.gemspec`
+  puts "Pushing gem..."
   `gem push app-tools-#{VERSION}.gem`
 end
