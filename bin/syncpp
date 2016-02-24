@@ -17,10 +17,18 @@ module AppTools
     include Methadone::CLILogging
     include Methadone::ExitNow
 
+    def self.keep_trying
+      tries ||= 5
+      yield
+    rescue UnexpectedResponse
+      sleep 3
+      retry unless (tries -= 1).zero?
+    end
+
     main do |profile_name|
       itunes_user = options[:u]
       itunes_password = options[:p]
-      name = "app-tools-itunesconnect"
+      keychain_name = "app-tools/iTunesConnect - #{itunes_user}"
 
       if itunes_user.nil?
         exit_now! "Must supply a user name"
@@ -28,11 +36,11 @@ module AppTools
 
       if itunes_password.nil?
         r, w = IO.pipe
-        pid = Process.spawn('security', 'find-generic-password', '-s', name, '-w', :out => w)
+        pid = Process.spawn('security', 'find-generic-password', '-s', keychain_name, '-w', :out => w)
         w.close
         Process.wait(pid)
         if $?.exitstatus != 0
-          exit_now! "Could not find generic password '#{name}'"
+          exit_now! "Could not find generic password '#{keychain_name}'"
         end
         itunes_password = r.read.chomp
         r.close
@@ -44,9 +52,14 @@ module AppTools
 
       Spaceship.login(itunes_user, itunes_password)
 
-      profiles = Spaceship.provisioning_profile.app_store.all
-      profile = profiles.find do |profile|
-        profile.name == profile_name
+      profile = nil
+
+      # Sometimes the call to the Apple API can fail
+      keep_trying do
+        profiles = Spaceship.provisioning_profile.app_store.all
+        profile = profiles.find do |profile|
+          profile.name == profile_name
+        end
       end
 
       if profile.nil?
@@ -65,9 +78,13 @@ module AppTools
         cert.name == profile.type
       end
 
-      prod_certs = Spaceship.certificate.production.all
-      prod_cert = prod_certs.find do |cert|
-        cert.id == profile.certificates.first.id
+      prod_cert = nil
+
+      keep_trying do
+        prod_certs = Spaceship.certificate.production.all
+        prod_cert = prod_certs.find do |cert|
+          cert.id == profile.certificates.first.id
+        end
       end
 
       profile_path = "#{profile_name}.mobileprovision"

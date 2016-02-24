@@ -26,6 +26,16 @@ module AppTools
       # Create working variables
       ipa_basename = File.basename(ipa_path)
       itmsp_path = File.dirname(ipa_path) + '/' + ipa_basename[0...-4] + '.itmsp'
+      itunes_user = options[:u]
+      keychain_name = "app-tools/iTunesConnect - #{itunes_user}"
+      itunes_password = options[:p]
+
+      if itunes_password.nil?
+        IO.popen(['security', 'find-generic-password', '-s', keychain_name, '-w']) do |io|
+          itunes_password = io.read.chop
+        end
+      end
+
 
       FileUtils.rm_rf itmsp_path
       FileUtils.mkdir itmsp_path
@@ -68,16 +78,6 @@ module AppTools
       File.open(itmsp_path + '/metadata.xml', 'w') { |file| file.write(metadata_xml) }
 
       itmstransporter = "/Applications/Xcode.app/Contents/Applications/Application Loader.app/Contents/itms/bin/iTMSTransporter"
-
-      itunes_user = options[:u]
-      itunes_password = options[:p]
-
-      if itunes_password.nil?
-        IO.popen(['security', 'find-generic-password', '-s', "app-tools-itunesconnect", '-w']) do |io|
-          itunes_password = io.read.chop
-        end
-      end
-
       safe_password = itunes_password.gsub!('&', '\\\&')
       IO.popen([itmstransporter, '-m', 'upload', '-u', itunes_user, '-p', safe_password, '-f', itmsp_path]) do |io|
         while not io.eof?
@@ -94,7 +94,7 @@ module AppTools
 
     on("-u", "--itunes-user USER", "The iTunesConnect user name")
     on("-i", "--itunes-app-id APP_ID", "The iTunesConnect app ID")
-    on("-p", "--itunes-password PASSWORD", "The iTunes user password. If not supplied keychain entry with the name 'app-tools-itunesconnect' is used.")
+    on("-p", "--itunes-password PASSWORD", "The iTunes user password, otherwise the password is retrieved from the keychain.")
 
     arg :ipa_path, "An IPA path", :require
 
