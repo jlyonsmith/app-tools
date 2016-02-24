@@ -1,7 +1,6 @@
 #!/usr/bin/env ruby
 
 require 'rubygems'
-require 'bundler/setup'
 require 'methadone'
 require 'app_tools/version'
 require 'fileutils'
@@ -46,7 +45,7 @@ module AppTools
           else
             error "Could not find generic password '#{name}'"
           end
-        when 'password'
+        when 'find'
           r, w = IO.pipe
           pid = Process.spawn('security', 'find-generic-password', '-s', name, '-w', :out => w)
           w.close

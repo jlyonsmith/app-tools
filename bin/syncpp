@@ -44,7 +44,8 @@ module AppTools
 
       Spaceship.login(itunes_user, itunes_password)
 
-      profile = Spaceship.provisioning_profile.app_store.all.find do |profile|
+      profiles = Spaceship.provisioning_profile.app_store.all
+      profile = profiles.find do |profile|
         profile.name == profile_name
       end
 
@@ -64,7 +65,8 @@ module AppTools
         cert.name == profile.type
       end
 
-      prod_cert = Spaceship.certificate.production.all.find do |cert|
+      prod_certs = Spaceship.certificate.production.all
+      prod_cert = prod_certs.find do |cert|
         cert.id == profile.certificates.first.id
       end
 

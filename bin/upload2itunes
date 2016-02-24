@@ -1,7 +1,6 @@
 #!/usr/bin/env ruby
 
 require 'rubygems'
-require 'bundler/setup'
 require 'methadone'
 require 'app_tools/version'
 require 'fileutils'
@@ -20,7 +19,7 @@ module AppTools
     include Methadone::ExitNow
 
     main do |ipa_path|
-      if ipa_path.nil? or !File.exist?(ipa_path) or !File.extname(ipa_path) == '.ipa'
+      if !File.exist?(ipa_path) or !File.extname(ipa_path) == '.ipa'
         exit_now! "Must supply a .ipa path to process"
       end
 
@@ -79,7 +78,7 @@ module AppTools
         end
       end
 
-      safe_password = itunes_password.gsub(/([&:^><])/) { |s| "\\\\1"}
+      safe_password = itunes_password.gsub!('&', '\\\&')
       IO.popen([itmstransporter, '-m', 'upload', '-u', itunes_user, '-p', safe_password, '-f', itmsp_path]) do |io|
         while not io.eof?
           puts io.readline()
