@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = "app-tools"
-  s.version = "1.1.2"
+  s.version = "1.2.0"
   s.summary = %q{Tools for creating iPhone apps}
   s.description = %q{Generate IPA files with correct Swift and symbol files for uploading to iTunesConnect.
 Resign IPA files with correct certificate and provisioning profiles for distribution.  Upload IPA files to iTunesConnect.
