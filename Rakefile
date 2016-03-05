@@ -11,7 +11,7 @@ task :vamper do
   `vamper -u`
   `git add :/`
   `git commit -m 'Update version info'`
-  puts "Updated version to #{VERSION}-#{BUILD}"
+  puts "Updated version"
 end
 
 task :release do

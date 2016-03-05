@@ -71,7 +71,7 @@ module AppTools
       end
 
       unless profile.valid?
-        profile.repair!
+        profile = profile.repair!
       end
 
       profile_prod_cert = profile.certificates.find do |cert|
