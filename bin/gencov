@@ -1,0 +1,31 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'methadone'
+require 'app_tools/version'
+require 'fileutils'
+require 'highline'
+
+module AppTools
+  module GenCov
+    include Methadone::Main
+    include Methadone::CLILogging
+    include Methadone::ExitNow
+
+    main do |xcfile|
+
+    end
+
+    description 'kcpass - Adds, removes or finds generic keychain password for use by app-tools'
+    version AppTools::VERSION
+
+    on("-s", "--schema", "Schema to use for the project or workspace")
+    on("-i", "--include", "Source directory to limit coverage source files")
+
+    arg :xcfile, "The .xcodeproj or .xcworkspace file", :require
+
+    use_log_level_option :toggle_debug_on_signal => 'USR1'
+
+    go!
+  end
+end
