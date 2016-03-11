@@ -1,7 +1,8 @@
 task :default => :test
 
-VERSION = '1.4.0'
-BUILD = '20160310.0'
+VERSION = '1.4.1'
+BUILD = '20160310.1'
+TOOL = 'app-tools'
 
 task :test do
   Dir.glob('./test/test_*.rb').each { |file| require file}
@@ -19,7 +20,7 @@ task :release do
   puts "Pushing tags to GitHub..."
   `git push --follow-tags`
   `rm *.gem`
-  `gem build app-tools.gemspec`
+  `gem build #{TOOL}.gemspec`
   puts "Pushing gem..."
-  `gem push app-tools-#{VERSION}.gem`
+  `gem push #{TOOL}-#{VERSION}.gem`
 end
