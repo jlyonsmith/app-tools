@@ -3,8 +3,8 @@
 require 'rubygems'
 require 'methadone'
 require 'app_tools/version'
-require 'fileutils'
-require 'highline'
+require 'tempfile'
+require 'json'
 
 module AppTools
   module GenCov
@@ -12,17 +12,118 @@ module AppTools
     include Methadone::CLILogging
     include Methadone::ExitNow
 
-    main do |xcfile|
+    class CovData
+      attr_accessor :total_files
+      attr_accessor :total_regions
+      attr_accessor :missed_regions
+      attr_accessor :total_lines
+      attr_accessor :missed_lines
 
+      def initialize
+        @total_files = 0
+        @total_regions = 0
+        @missed_regions = 0
+        @total_lines = 0
+        @missed_lines = 0
+      end
+
+      def to_h
+        {
+            :total_files => @total_files,
+            :total_regions => @total_regions,
+            :missed_regions => @missed_regions,
+            :total_lines => @total_lines,
+            :missed_lines => @missed_lines
+        }
+      end
     end
 
-    description 'kcpass - Adds, removes or finds generic keychain password for use by app-tools'
+    main do |xcfile, directory|
+      if xcfile.end_with?(".xcodeproj")
+        xcflag = "-project"
+      elsif xcfile.end_with?(".xcworkspace")
+        xcflag = "-workspace"
+      end
+
+      scheme = options[:s]
+
+      build_settings_file = Tempfile.new('gencov')
+      pid = Process.spawn("xcodebuild #{xcflag} #{xcfile} -scheme #{scheme} -sdk iphonesimulator -showBuildSettings",
+          [:out, :err] => build_settings_file)
+      Process.wait(pid)
+      build_settings_file.close
+      build_settings = {}
+
+      File.open(build_settings_file.path).each_line do |line|
+        if /^ *([A-Z_0-9]*) *= *(.*)$/.match(line)
+          build_settings[$1] = $2
+        end
+      end
+
+      coverage_root = File.join(build_settings['PROJECT_TEMP_ROOT'], "CodeCoverage/#{scheme}")
+      app_name = build_settings['EXECUTABLE_NAME']
+      profdata_path = File.join(coverage_root, "Coverage.profdata")
+      binary_path = `find #{coverage_root} -path *#{app_name}.app/#{app_name}`.chomp
+
+      directory = File.expand_path(directory)
+      source_files = `find #{directory} -type f \\( -name "*.m" -or -name "*.h" -or -name "*.swift" \\)`.lines
+
+      m_cov = CovData.new
+      total_h_files = 0
+      swift_cov = CovData.new
+      n = 0
+
+      source_files.each do |source_file|
+        source_file.chomp!
+
+        if source_file.end_with?('.h')
+          total_h_files += 1
+          next
+        end
+
+        file_coverage = `xcrun llvm-cov report -instr-profile #{profdata_path} #{binary_path} "#{source_file}"`
+
+        file_coverage.each_line do |line|
+          if /^TOTAL *(.*)$/.match(line)
+            fields = $1.split
+
+            total_regions = fields[0].to_i
+            missed_regions = fields[1].to_i
+            total_lines = fields[3].to_i
+            missed_lines = fields[4].to_i
+
+            if source_file.end_with?('.swift')
+              swift_cov.total_files += 1
+              swift_cov.total_regions += total_regions
+              swift_cov.missed_regions += missed_regions
+              swift_cov.total_lines += total_lines
+              swift_cov.missed_lines += missed_lines
+            else
+              m_cov.total_files += 1
+              m_cov.total_regions += total_regions
+              m_cov.missed_regions += missed_regions
+              m_cov.total_lines += total_lines
+              m_cov.missed_lines += missed_lines
+            end
+          end
+        end
+
+        n += 1
+        if n % 100 == 0
+          STDERR.puts n
+        end
+      end
+
+      puts(JSON.generate("coverage" => { ".swift" => swift_cov.to_h, ".m" => m_cov.to_h, ".h" => { "total_files" => total_h_files } }))
+    end
+
+    description 'gencov - Generates formatted coverage data for a project'
     version AppTools::VERSION
 
-    on("-s", "--schema", "Schema to use for the project or workspace")
-    on("-i", "--include", "Source directory to limit coverage source files")
+    on("-s", "--scheme SCHEME", "Schema to use for the project or workspace")
 
     arg :xcfile, "The .xcodeproj or .xcworkspace file", :require
+    arg :directory, "The directory to generate coverage for", :require
 
     use_log_level_option :toggle_debug_on_signal => 'USR1'
 
