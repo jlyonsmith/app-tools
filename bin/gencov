@@ -5,6 +5,7 @@ require 'methadone'
 require 'app_tools/version'
 require 'tempfile'
 require 'json'
+require 'psych'
 
 module AppTools
   module GenCov
@@ -29,11 +30,11 @@ module AppTools
 
       def to_h
         {
-            :total_files => @total_files,
-            :total_regions => @total_regions,
-            :missed_regions => @missed_regions,
-            :total_lines => @total_lines,
-            :missed_lines => @missed_lines
+            'total_files' => @total_files,
+            'total_regions' => @total_regions,
+            'missed_regions' => @missed_regions,
+            'total_lines' => @total_lines,
+            'missed_lines' => @missed_lines
         }
       end
     end
@@ -65,8 +66,14 @@ module AppTools
       profdata_path = File.join(coverage_root, "Coverage.profdata")
       binary_path = `find #{coverage_root} -path *#{app_name}.app/#{app_name}`.chomp
 
+      if $?.exitstatus != 0
+        exit_now! "Unable to proceed"
+      end
+
       directory = File.expand_path(directory)
       source_files = `find #{directory} -type f \\( -name "*.m" -or -name "*.h" -or -name "*.swift" \\)`.lines
+
+      STDERR.puts("Found #{source_files.length} source files")
 
       m_cov = CovData.new
       total_h_files = 0
@@ -109,18 +116,25 @@ module AppTools
         end
 
         n += 1
-        if n % 100 == 0
-          STDERR.puts n
+        if n % 10 == 0
+          STDERR.puts("Processed #{n}")
+          break
         end
       end
 
-      puts(JSON.generate("coverage" => { ".swift" => swift_cov.to_h, ".m" => m_cov.to_h, ".h" => { "total_files" => total_h_files } }))
+      data = {"coverage" => { "swift_files" => swift_cov.to_h, "m_files" => m_cov.to_h, "h_files" => { "total_files" => total_h_files } }}
+      if options[:j]
+        puts(JSON.generate(data))
+      else
+        puts(Psych.dump(data))
+      end
     end
 
     description 'gencov - Generates formatted coverage data for a project'
     version AppTools::VERSION
 
     on("-s", "--scheme SCHEME", "Schema to use for the project or workspace")
+    on("-j", "--json", "Output in JSON format instead of YAML")
 
     arg :xcfile, "The .xcodeproj or .xcworkspace file", :require
     arg :directory, "The directory to generate coverage for", :require
