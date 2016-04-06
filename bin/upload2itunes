@@ -78,8 +78,7 @@ module AppTools
       File.open(itmsp_path + '/metadata.xml', 'w') { |file| file.write(metadata_xml) }
 
       itmstransporter = "/Applications/Xcode.app/Contents/Applications/Application Loader.app/Contents/itms/bin/iTMSTransporter"
-      safe_password = itunes_password.gsub!('&', '\\\&')
-      IO.popen([itmstransporter, '-m', 'upload', '-u', itunes_user, '-p', safe_password, '-f', itmsp_path]) do |io|
+      IO.popen([itmstransporter, '-m', 'upload', '-u', itunes_user, '-p', itunes_password, '-f', itmsp_path]) do |io|
         while not io.eof?
           puts io.readline()
         end

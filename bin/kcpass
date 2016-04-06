@@ -68,7 +68,7 @@ module AppTools
     on("-u", "--itunes-user USER", "iTunesConnect user")
     on("-p", "--itunes-password PASSWORD", "iTunesConnect password")
 
-    arg :action, "An action either add, delete or password", :require
+    arg :action, "An action either add, delete or find", :require
 
     use_log_level_option :toggle_debug_on_signal => 'USR1'
 
