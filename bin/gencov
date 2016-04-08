@@ -116,9 +116,8 @@ module AppTools
         end
 
         n += 1
-        if n % 10 == 0
+        if n % 100 == 0
           STDERR.puts("Processed #{n}")
-          break
         end
       end
 
