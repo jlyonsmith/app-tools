@@ -1,7 +1,10 @@
-#!/usr/bin/osascript
+#!/usr/bin/env ruby
+
+require 'tempfile'
 
 # See https://github.com/paypal/Illuminator/blob/master/gem/resources/scripts/set_hardware_keyboard.applescript
 
+script = %q{#!/usr/bin/osascript
 on run argv
 
 tell application "Simulator" to launch
@@ -49,3 +52,10 @@ tell application "System Events"
 end tell
 
 end run
+}
+
+tempfile = Tempfile.new('applescript-')
+tempfile.write(script)
+tempfile.close
+system 'osascript', tempfile.path, ARGV[0] == 'on' ? '1' : '0'
+
