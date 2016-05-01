@@ -54,36 +54,36 @@ module AppTools
 
       profile = nil
 
-      # Sometimes the call to the Apple API can fail
+      # NOTE: Sometimes the call to the Apple API can fail, hence the retries
+
+      # Get the provisioning profile that matches the name given
       keep_trying do
-        profiles = Spaceship.provisioning_profile.app_store.all
+        profiles = Spaceship.provisioning_profile.all
         profile = profiles.find do |profile|
           profile.name == profile_name
         end
       end
 
       if profile.nil?
-        exit_now! "Provisioning profile #{profile_name} not found"
+        exit_now! "Provisioning profile '#{profile_name}' not found"
       end
 
-      if profile.type != 'iOS Distribution'
-        exit_now! "The profile must use an iOS distribution certificate"
-      end
-
+      # If it's not valid, repair it now, i.e. get it re-issued.
       unless profile.valid?
         profile = profile.repair!
       end
 
-      profile_prod_cert = profile.certificates.find do |cert|
+      # Get the profile certificate that matches the profile type
+      profile_cert = profile.certificates.find do |cert|
         cert.name == profile.type
       end
 
-      prod_cert = nil
-
+      # Get the full certificate record
+      cert = nil
       keep_trying do
-        prod_certs = Spaceship.certificate.production.all
-        prod_cert = prod_certs.find do |cert|
-          cert.id == profile.certificates.first.id
+        certs = Spaceship.certificate.all
+        cert = certs.find do |cert|
+          cert.id == profile_cert.id
         end
       end
 
@@ -91,7 +91,7 @@ module AppTools
 
       File.write(profile_path, profile.download)
 
-      puts prod_cert.name
+      puts cert.name
     end
 
     description 'syncpp - Synchronize a certificate and provisioning profile'
