@@ -105,14 +105,13 @@ module AppTools
       end
 
       ## Repack
-      new_ipa_dir = File.join(File.dirname(ipa_path), ipa_basename + ".resigned")
+      new_ipa_dir = File.join(File.dirname(ipa_path), ipa_basename + '.' + [*('a'..'z'),*('0'..'9')].shuffle[0,8].join)
       new_ipa_path = File.expand_path(File.join(new_ipa_dir, File.basename(ipa_path)))
       FileUtils.rm_rf new_ipa_dir
       FileUtils.mkdir new_ipa_dir
 
-      # NOTE: The zip tool
+      # NOTE: The zip tool...
       `cd #{contents_dir}; zip -r #{new_ipa_path} *`
-      #FileUtils.rm_rf temp_dir
       puts new_ipa_path
     end
 
