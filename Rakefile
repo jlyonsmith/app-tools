@@ -1,7 +1,7 @@
 task :default => :test
 
-VERSION = '1.8.0'
-BUILD = '20160501.0'
+VERSION = '1.8.1'
+BUILD = '20160501.1'
 TOOL = 'app-tools'
 
 task :test do
