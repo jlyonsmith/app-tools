@@ -91,7 +91,7 @@ module AppTools
 
       File.write(profile_path, profile.download)
 
-      puts cert.name
+      puts "SYNCPP_CERTIFICATE_NAME=\"#{cert.name}\"; SYNCPP_PROFILE_UUID=\"#{profile.uuid}\""
     end
 
     description 'syncpp - Synchronize a certificate and provisioning profile'
