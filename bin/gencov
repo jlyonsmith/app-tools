@@ -61,13 +61,24 @@ module AppTools
         end
       end
 
-      coverage_root = File.join(build_settings['PROJECT_TEMP_ROOT'], "CodeCoverage/#{scheme}")
+      coverage_root = File.join(build_settings['PROJECT_TEMP_ROOT'], "CodeCoverage")
+
+      if Dir.exist?(coverage_root)
+        exit_now! "Could not find coverage root dir #{coverage_root}. Was Xcode upgraded?"
+      end
+
       app_name = build_settings['EXECUTABLE_NAME']
       profdata_path = File.join(coverage_root, "Coverage.profdata")
+
+
+      if Dir.exist?(coverage_root)
+        exit_now! "Could not find coverage file #{profdata_path}. Is code coverage enabled in the scheme '#{scheme}'?"
+      end
+
       binary_path = `find #{coverage_root} -path *#{app_name}.app/#{app_name}`.chomp
 
       if $?.exitstatus != 0
-        exit_now! "Unable to proceed"
+        exit_now! "Could not find #{app_name} under #{coverage_root}"
       end
 
       directory = File.expand_path(directory)
