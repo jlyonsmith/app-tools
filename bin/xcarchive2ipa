@@ -26,7 +26,7 @@ module AppTools
       xcarchive_path = File.expand_path(xcarchive_path)
       app_name = Dir.entries(xcarchive_path + '/Products/Applications')[2]
       app_base_name = app_name[0...-4]
-      tmp_path = File.dirname(xcarchive_path) + '/' + app_base_name + '.tmp'
+      tmp_path = File.dirname(xcarchive_path) + '/' + app_base_name + '.xcarchive2ipa.tmp'
 
       if Dir.exists?(tmp_path)
         FileUtils.rm_rf tmp_path
@@ -39,6 +39,10 @@ module AppTools
 
       # Copy the SwiftSupport tree
       FileUtils.cp_r xcarchive_path + '/SwiftSupport', tmp_path + '/SwiftSupport'
+
+      # HACK: Copy the Swift libraries into the Frameworks directory to make sure they match
+      # https://techblog.badoo.com/blog/2015/02/09/code-signing-and-distributing-swift/
+      FileUtils.cp_r xcarchive_path + '/SwiftSupport/iphoneos', tmp_path + '/Payload/' + app_name + '/Frameworks'
 
       # Fix up the symbols
       app_binary = xcarchive_path + '/Products/Applications/' + app_name + '/' + app_base_name
@@ -54,7 +58,7 @@ module AppTools
       end
 
       `cd #{tmp_path}; zip -r #{ipa_rel_path} *`
-      FileUtils.rm_rf tmp_path
+      #FileUtils.rm_rf tmp_path
       puts ipa_path
     end
 

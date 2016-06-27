@@ -25,6 +25,7 @@ module AppTools
 
       ipa_basename = File.basename(ipa_path)
       profile_path = options[:p]
+      certificate_name = "iPhone Distribution: " + options[:c]
 
       unless File.exist?(profile_path)
         exit_now! "Must supply a valid provisioning profile"
@@ -53,7 +54,7 @@ module AppTools
       end
 
       ## Creating a temp dir to work in
-      temp_dir = File.join(File.dirname(ipa_path), ipa_basename + '.tmp')
+      temp_dir = File.join(File.dirname(ipa_path), ipa_basename[0...-4] + '.resignipa.tmp')
       contents_dir = File.join(temp_dir, "Contents")
 
       FileUtils.rm_rf temp_dir
@@ -65,7 +66,6 @@ module AppTools
       ## Get all dirs to be signed
       # See http://www.xgiovio.com/blog-photos-videos-other/blog/resign-your-ios-ipa-frameworks-and-plugins-included/
       payload_dir = File.join(contents_dir, "Payload")
-      sign_dirs = `find -d #{payload_dir} \\( -name \\*.app -o -name \\*.framework -o -name \\*.appex -name \\*.dylib \\)`.split("\n")
 
       ## Embed the new provisioning profile
       app_dir = `find -d #{payload_dir} -name \\*.app`.split("\n")
@@ -89,19 +89,22 @@ module AppTools
       File.write(entitlements_path,
           entitlements_data.to_plist(:plist_format => CFPropertyList::List::FORMAT_XML))
 
-      ## Finally, resign all the files
-      sign_dirs.each do |sign_dir|
-        if sign_dir.end_with?(".framework") or sign_dir.end_with?(".dylib")
-          # See https://github.com/fastlane/sigh/blob/master/lib/assets/resign.sh#L412
-          pid = Process.spawn("codesign", "-f", "-s", "iPhone Distribution: " + options[:c], sign_dir)
-        else
-          pid = Process.spawn("codesign", "-f", "-s", "iPhone Distribution: " + options[:c], "--entitlements", entitlements_path, sign_dir)
-        end
+      ## Resign all the frameworks and libraries first ...
+      # http://stackoverflow.com/questions/25297638/how-do-i-codesign-a-swift-app-via-the-commandline
+      `find -d #{payload_dir} \\( -name \\*.framework -o -name \\*.dylib \\)`.split("\n").each do |sign_dir|
+        # See https://github.com/fastlane/sigh/blob/master/lib/assets/resign.sh#L412
+        pid = Process.spawn("codesign", "-f", "-s", certificate_name, sign_dir)
         Process.wait(pid)
-
         unless $?.exitstatus == 0
-          exit_now! "Failed to sign files in #{sign_dir}"
+          exit_now! "Failed to sign #{sign_dir}"
         end
+      end
+
+      ## ... then resign the app
+      pid = Process.spawn("codesign", "-f", "-s", certificate_name, "--entitlements", entitlements_path, app_path)
+      Process.wait(pid)
+      unless $?.exitstatus == 0
+        exit_now! "Failed to sign #{sign_dir}"
       end
 
       ## Repack
