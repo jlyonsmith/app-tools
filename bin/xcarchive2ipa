@@ -40,10 +40,6 @@ module AppTools
       # Copy the SwiftSupport tree
       FileUtils.cp_r xcarchive_path + '/SwiftSupport', tmp_path + '/SwiftSupport'
 
-      # HACK: Copy the Swift libraries into the Frameworks directory to make sure they match
-      # https://techblog.badoo.com/blog/2015/02/09/code-signing-and-distributing-swift/
-      FileUtils.cp_r xcarchive_path + '/SwiftSupport/iphoneos', tmp_path + '/Payload/' + app_name + '/Frameworks'
-
       # Fix up the symbols
       app_binary = xcarchive_path + '/Products/Applications/' + app_name + '/' + app_base_name
       FileUtils.mkdir tmp_path + '/Symbols'

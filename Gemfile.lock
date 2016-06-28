@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    app-tools (1.10.1)
+    app-tools (1.11.0)
       CFPropertyList (~> 2.3)
       highline (~> 1.7)
       methadone (~> 1.9)
