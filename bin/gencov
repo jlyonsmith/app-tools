@@ -46,8 +46,14 @@ module AppTools
         xcflag = "-workspace"
       end
 
+      xcfile = File.expand(xcfile)
+
+      if !File.exist?(xcfile)
+        exit_now! "Xcode file '#{xcfile}' does not exist"
+      end
+
       scheme = options[:s]
-      derived_data_dir = options[:d]
+      derived_data_dir = File.expand_path(options[:d])
 
       if !Dir.exist?(derived_data_dir)
         exit_now! "DerivedData directory '#{derived_data_dir}' does not exist"
