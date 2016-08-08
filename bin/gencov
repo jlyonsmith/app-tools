@@ -39,7 +39,7 @@ module AppTools
       end
     end
 
-    main do |xcfile, directory|
+    main do |xcfile, source_dir|
       if xcfile.end_with?(".xcodeproj")
         xcflag = "-project"
       elsif xcfile.end_with?(".xcworkspace")
@@ -47,6 +47,11 @@ module AppTools
       end
 
       scheme = options[:s]
+      derived_data_dir = options[:d]
+
+      if !Dir.exist?(derived_data_dir)
+        exit_now! "DerivedData directory '#{derived_data_dir}' does not exist"
+      end
 
       build_settings_file = Tempfile.new('gencov')
       pid = Process.spawn("xcodebuild #{xcflag} #{xcfile} -scheme #{scheme} -sdk iphonesimulator -showBuildSettings",
@@ -61,28 +66,30 @@ module AppTools
         end
       end
 
-      coverage_root = File.join(build_settings['PROJECT_TEMP_ROOT'], "CodeCoverage")
+      coverage_filename = 'Coverage.profdata'
+      profdata_paths = `find #{derived_data_dir} -name #{coverage_filename}`.split(/\n/)
+      profdata_path = nil
+      app_path = nil
 
-      if !Dir.exist?(coverage_root)
-        exit_now! "Could not find coverage root dir #{coverage_root}. Was Xcode upgraded?"
+      if profdata_paths.length > 0
+        profdata_path = profdata_paths[0]
+      else
+        exit_now! "Could not find #{coverage_filename}$ in '#{derived_data_dir}'"
       end
 
       app_name = build_settings['EXECUTABLE_NAME']
-      profdata_path = File.join(coverage_root, "Coverage.profdata")
+      debug_sim_dir = 'Debug-iphonesimulator'
 
+      app_paths = `find #{coverage_root} -path #{debug_sim_dir}/#{app_name}.app`.split(/\n/)
 
-      if !File.exist?(profdata_path)
-        exit_now! "Could not find coverage file #{profdata_path}. Is code coverage enabled in the scheme '#{scheme}'?"
+      if app_paths.length > 0
+        app_path = app_paths[0]
+      else
+        exit_now! "Could not find '#{debug_sim_dir}/#{app_name}.app' under #{derived_data_dir}"
       end
 
-      binary_path = `find #{coverage_root} -path *#{app_name}.app/#{app_name}`.chomp
-
-      if $?.exitstatus != 0
-        exit_now! "Could not find #{app_name} under #{coverage_root}"
-      end
-
-      directory = File.expand_path(directory)
-      source_files = `find #{directory} -type f \\( -name "*.m" -or -name "*.h" -or -name "*.swift" \\)`.lines
+      source_dir = File.expand_path(source_dir)
+      source_files = `find #{source_dir} -type f \\( -name "*.m" -or -name "*.h" -or -name "*.swift" \\)`.lines
 
       STDERR.puts("Found #{source_files.length} source files")
 
@@ -99,7 +106,7 @@ module AppTools
           next
         end
 
-        file_coverage = `xcrun llvm-cov report -instr-profile #{profdata_path} #{binary_path} "#{source_file}"`
+        file_coverage = `xcrun llvm-cov report -instr-profile #{profdata_path} #{app_path} "#{source_file}"`
 
         file_coverage.each_line do |line|
           if /^TOTAL *(.*)$/.match(line)
@@ -145,9 +152,10 @@ module AppTools
 
     on("-s", "--scheme SCHEME", "Schema to use for the project or workspace")
     on("-j", "--json", "Output in JSON format instead of YAML")
+    on("-d", "--deriveddata", "Override location of DerivedData directory")
 
     arg :xcfile, "The .xcodeproj or .xcworkspace file", :require
-    arg :directory, "The directory to generate coverage for", :require
+    arg :source_dir, "The source directory to generate coverage for", :require
 
     use_log_level_option :toggle_debug_on_signal => 'USR1'
 

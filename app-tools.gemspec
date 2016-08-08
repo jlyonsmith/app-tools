@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = "app-tools"
-  s.version = "1.12.0"
+  s.version = "1.14.0"
   s.summary = %q{Tools for creating iPhone apps}
   s.description = %q{Generate IPA files with correct Swift and symbol files for uploading to iTunesConnect.
 Resign IPA files with correct certificate and provisioning profiles for distribution.  Upload IPA files to iTunesConnect.
@@ -11,7 +11,7 @@ Resign IPA files with correct certificate and provisioning profiles for distribu
   s.license = "MIT"
   s.homepage = 'http://github.com/jlyonsmith/app-tools'
   s.require_paths = ['lib']
-  s.required_ruby_version = '~> 2.0'
+  s.required_ruby_version = '~> 2.2'
   s.files = `git ls-files -- lib/*`.split("\n")
   s.executables = `git ls-files -- bin/*`.split("\n").map { |f| File.basename(f) }
   s.add_development_dependency 'bundler', '~> 1.10'
