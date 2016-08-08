@@ -46,7 +46,7 @@ module AppTools
         xcflag = "-workspace"
       end
 
-      xcfile = File.expand(xcfile)
+      xcfile = File.expand_path(xcfile)
 
       if !File.exist?(xcfile)
         exit_now! "Xcode file '#{xcfile}' does not exist"
@@ -86,13 +86,15 @@ module AppTools
       app_name = build_settings['EXECUTABLE_NAME']
       debug_sim_dir = 'Debug-iphonesimulator'
 
-      app_paths = `find #{coverage_root} -path #{debug_sim_dir}/#{app_name}.app`.split(/\n/)
+      app_paths = `find #{derived_data_dir} -path */#{debug_sim_dir}/#{app_name}.app`.split(/\n/)
 
       if app_paths.length > 0
         app_path = app_paths[0]
       else
         exit_now! "Could not find '#{debug_sim_dir}/#{app_name}.app' under #{derived_data_dir}"
       end
+
+      binary_path = File.join(app_path, app_name)
 
       source_dir = File.expand_path(source_dir)
       source_files = `find #{source_dir} -type f \\( -name "*.m" -or -name "*.h" -or -name "*.swift" \\)`.lines
@@ -112,7 +114,9 @@ module AppTools
           next
         end
 
-        file_coverage = `xcrun llvm-cov report -instr-profile #{profdata_path} #{app_path} "#{source_file}"`
+        command = "xcrun llvm-cov report -instr-profile #{profdata_path} #{binary_path} '#{source_file}'"
+        #puts(command)
+        file_coverage = `#{command}`
 
         file_coverage.each_line do |line|
           if /^TOTAL *(.*)$/.match(line)
@@ -158,7 +162,7 @@ module AppTools
 
     on("-s", "--scheme SCHEME", "Schema to use for the project or workspace")
     on("-j", "--json", "Output in JSON format instead of YAML")
-    on("-d", "--deriveddata", "Override location of DerivedData directory")
+    on("-d", "--deriveddata DERIVEDDATADIR", "Override location of DerivedData directory")
 
     arg :xcfile, "The .xcodeproj or .xcworkspace file", :require
     arg :source_dir, "The source directory to generate coverage for", :require
