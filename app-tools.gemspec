@@ -22,4 +22,5 @@ Resign IPA files with correct certificate and provisioning profiles for distribu
   s.add_dependency('rubyzip', '~> 1.1')
   s.add_dependency('spaceship', '~> 0.26')
   s.add_dependency('highline', '~> 1.7')
+  s.add_dependency('mongo', '~> 2.3')
 end

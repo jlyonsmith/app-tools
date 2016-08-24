@@ -1,0 +1,131 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'methadone'
+require 'app_tools/version'
+require 'fileutils'
+require 'mongo'
+
+module AppTools
+  module MongoBackup
+    include Methadone::Main
+    include Methadone::CLILogging
+    include Methadone::ExitNow
+
+    def self.find_tool(name, paths)
+      paths.each { |path|
+        full_path = File.join(path, name)
+
+        if File.exist?(full_path)
+          return full_path
+        end
+      }
+      raise "Unable to find tool '#{name}'"
+    end
+
+    main do
+      profile = options[:profile]
+      bucket_name = options[:bucket]
+      max_backups = options[:max].to_i
+      mongo_path = options[:mongo]
+
+      if profile.nil?
+        exit_now! "Must specify AWS profile"
+      end
+
+      if bucket_name.nil?
+        exit_now! "Must specify AWS bucket name"
+      end
+
+      if max_backups.nil? or max_backups == 0
+        max_backups = 20
+        puts "Max backups is #{max_backups}"
+      end
+
+      if mongo_path.nil?
+        exit_now! "Must specify a database to backup!"
+      end
+
+      mongo_uri = Mongo::URI.new(mongo_path)
+      database = mongo_uri.database
+      user = mongo_uri.credentials[:user]
+      password = mongo_uri.credentials[:password]
+      mongo_server = mongo_uri.servers[0]
+
+      mongodump_tool = find_tool('mongodump', ['/usr/bin', '/usr/local/bin'])
+      aws_tool = find_tool('aws', ['/usr/bin', '/usr/local/bin'])
+      scutil_tool = find_tool('scutil', ['/usr/sbin'])
+      tar_tool = find_tool('tar', ['/usr/bin'])
+
+      Dir.mktmpdir {|dump_dir_name|
+        local_host_name = `#{scutil_tool} --get LocalHostName`.strip
+
+        puts "Backing up mongodb://#{mongo_server}/#{database} from #{local_host_name}"
+
+        `#{mongodump_tool} -h #{mongo_server} -u #{user} -p #{password} -d #{database} -o #{dump_dir_name}`
+
+        if $? != 0
+          raise "Unable to create dump of mongodb://#{mongo_server}/#{database}"
+        end
+
+        date_time = DateTime.now.strftime("%Y%m%d-%H%M%SZ")
+
+        backup_filename = "#{local_host_name}-#{database}-#{date_time}.tar.gz"
+
+        `cd #{dump_dir_name}; #{tar_tool} -czvf #{backup_filename} #{database}/*`
+
+        if $? != 0
+          raise "Unable to create tar zip file '#{backup_filename}'"
+        end
+
+        `cd #{dump_dir_name}; #{aws_tool} s3 cp #{backup_filename} s3://#{bucket_name}/ --profile #{profile}`
+
+        if $? != 0
+          raise "Unable to upload '#{backup_filename}' to s3://#{bucket_name}/"
+        end
+
+        # Reduce backups to desired maximum
+        backup_filenames = `#{aws_tool} s3 ls s3://#{bucket_name} --profile #{profile}`.split('\n')
+
+        if $? != 0
+          raise "Unable to get list of existing backups from s3://#{bucket_name}"
+        end
+
+        # backup_filenames = %w(
+        #   'host-database-20160624-002055Z.tar.gz',
+        #   'host-database-20160620-002055Z.tar.gz',
+        #   'host-database-20160621-002055Z.tar.gz',
+        #   'host-database-20160708-002055Z.tar.gz',
+        #   'host-database-20160601-002055Z.tar.gz.save',
+        # )
+        backup_filenames.sort!
+        backup_filenames.delete_if { |f| f.match(/save/) }
+        num_backups_to_delete = backup_filenames.count - max_backups
+
+        if num_backups_to_delete > 0
+          (0...num_backups_to_delete).each { |i|
+            `#{aws_tool} s3 rm s3://#{bucket_name}/#{backup_filenames[i]} --profile #{profile}`
+
+            if $? != 0
+              puts "WARNING: Unable to delete s3://#{bucket_name}/#{backup_filenames[i]}"
+            end
+          }
+        end
+      }
+
+      puts "Backup completed successfully"
+    end
+
+    description 'mongo-backup - Perform backup for a MongoDB database'
+    version AppTools::VERSION
+
+    on("-p", "--profile PROFILE", "AWS profile")
+    on("-b", "--bucket BUCKET_NAME", "AWS bucket")
+    on("-n", "--max MAX_BACKUPS", "Maximum number of backups to keep")
+    on("-m", "--mongo MONGO_URI", "Full URI of MongoDB to backup")
+
+    use_log_level_option :toggle_debug_on_signal => 'USR1'
+
+    go!
+  end
+end
