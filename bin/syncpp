@@ -70,7 +70,11 @@ module AppTools
 
       # If it's not valid, repair it now, i.e. get it re-issued.
       unless profile.valid?
-        profile = profile.repair!
+        begin
+          profile = profile.repair!
+        rescue
+          exit_now! "Unable to repair bad provisioning profile. Did a certificate expire?"
+        end
       end
 
       # Get the profile certificate that matches the profile type
