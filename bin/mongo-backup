@@ -5,6 +5,7 @@ require 'methadone'
 require 'app_tools/version'
 require 'fileutils'
 require 'mongo'
+require 'tmpdir'
 
 module AppTools
   module MongoBackup
