@@ -63,7 +63,11 @@ module AppTools
 
         puts "Backing up mongodb://#{mongo_server}/#{database} from #{local_host_name}"
 
-        `#{mongodump_tool} -h #{mongo_server} -u #{user} -p #{password} -d #{database} -o #{dump_dir_name}`
+        if !(user.nil? and password.nil?)
+          `#{mongodump_tool} -h #{mongo_server} -u #{user} -p #{password} -d #{database} -o #{dump_dir_name}`
+        else
+          `#{mongodump_tool} -h #{mongo_server} -d #{database} -o #{dump_dir_name}`
+        end
 
         if $? != 0
           raise "Unable to create dump of mongodb://#{mongo_server}/#{database}"
