@@ -6,6 +6,7 @@ require 'app_tools/version'
 require 'fileutils'
 require 'mongo'
 require 'tmpdir'
+require 'slack-ruby-client'
 
 module AppTools
   module MongoBackup
@@ -29,6 +30,8 @@ module AppTools
       bucket_name = options[:bucket]
       max_backups = options[:max].to_i
       mongo_path = options[:mongo]
+      slack_api_token = options[:api]
+      slack_channel = options[:channel]
 
       if profile.nil?
         exit_now! "Must specify AWS profile"
@@ -45,6 +48,10 @@ module AppTools
 
       if mongo_path.nil?
         exit_now! "Must specify a database to backup!"
+      end
+
+      if slack_api_token.nil? or slack_channel.nil?
+        puts "WARNING: No Slack API and/or channel token given, no notification will be sent"
       end
 
       mongo_uri = Mongo::URI.new(mongo_path)
@@ -119,6 +126,24 @@ module AppTools
       }
 
       puts "Backup completed successfully"
+
+      Slack.configure do |config|
+        config.token = slack_api_token
+      end
+
+      unless slack_api_token.nil? or slack_channel.nil?
+        # TODO: Finish this...
+        message = "MongoDB backup complete"
+        attachments = [
+            :title => "MongoDB Backup",
+            :text => message,
+            :color => :good,
+        ]
+        slack = Slack::RealTime::Client.new(websocket_ping: 10)
+        slack.web_client.chat_postMessage(channel: slack_channel, text: message, attachments: attachments, as_user: true)
+        slack.close
+      end
+
     end
 
     description 'mongo-backup - Perform backup for a MongoDB database'
@@ -128,6 +153,8 @@ module AppTools
     on("-b", "--bucket BUCKET_NAME", "AWS bucket")
     on("-n", "--max MAX_BACKUPS", "Maximum number of backups to keep")
     on("-m", "--mongo MONGO_URI", "Full URI of MongoDB to backup")
+    on("-t", "--api SLACK_API_TOKEN", "Slack API token")
+    on("-c", "--channel SLACK_CHANNEL", "Slack channel")
 
     use_log_level_option :toggle_debug_on_signal => 'USR1'
 
