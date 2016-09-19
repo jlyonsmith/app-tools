@@ -65,85 +65,111 @@ module AppTools
       scutil_tool = find_tool('scutil', ['/usr/sbin'])
       tar_tool = find_tool('tar', ['/usr/bin'])
 
-      Dir.mktmpdir {|dump_dir_name|
-        local_host_name = `#{scutil_tool} --get LocalHostName`.strip
+      backup_status = :failed
 
-        puts "Backing up mongodb://#{mongo_server}/#{database} from #{local_host_name}"
+      Dir.mktmpdir do |dump_dir_name|
+        begin
+          local_host_name = `#{scutil_tool} --get LocalHostName`.strip
 
-        if !(user.nil? and password.nil?)
-          `#{mongodump_tool} -h #{mongo_server} -u #{user} -p #{password} -d #{database} -o #{dump_dir_name}`
-        else
-          `#{mongodump_tool} -h #{mongo_server} -d #{database} -o #{dump_dir_name}`
-        end
+          puts "Backing up mongodb://#{mongo_server}/#{database} from #{local_host_name}"
 
-        if $? != 0
-          raise "Unable to create dump of mongodb://#{mongo_server}/#{database}"
-        end
+          if !(user.nil? and password.nil?)
+            `#{mongodump_tool} -h #{mongo_server} -u #{user} -p #{password} -d #{database} -o #{dump_dir_name}`
+          else
+            `#{mongodump_tool} -h #{mongo_server} -d #{database} -o #{dump_dir_name}`
+          end
 
-        date_time = DateTime.now.strftime("%Y%m%d-%H%M%SZ")
+          if $? != 0
+            raise "Unable to create dump of mongodb://#{mongo_server}/#{database}"
+          end
 
-        backup_filename = "#{local_host_name}-#{database}-#{date_time}.tar.gz"
+          date_time = DateTime.now.strftime("%Y%m%d-%H%M%SZ")
 
-        `cd #{dump_dir_name}; #{tar_tool} -czvf #{backup_filename} #{database}/*`
+          backup_filename = "#{local_host_name}-#{database}-#{date_time}.tar.gz"
 
-        if $? != 0
-          raise "Unable to create tar zip file '#{backup_filename}'"
-        end
+          `cd #{dump_dir_name}; #{tar_tool} -czvf #{backup_filename} #{database}/*`
 
-        `cd #{dump_dir_name}; #{aws_tool} s3 cp #{backup_filename} s3://#{bucket_name}/ --profile #{profile}`
+          if $? != 0
+            raise "Unable to create tar zip file '#{backup_filename}'"
+          end
 
-        if $? != 0
-          raise "Unable to upload '#{backup_filename}' to s3://#{bucket_name}/"
-        end
+          `cd #{dump_dir_name}; #{aws_tool} s3 cp #{backup_filename} s3://#{bucket_name}/ --profile #{profile}`
 
-        # Reduce backups to desired maximum
-        backup_filenames = `#{aws_tool} s3 ls s3://#{bucket_name} --profile #{profile}`.split('\n')
+          if $? != 0
+            raise "Unable to upload '#{backup_filename}' to s3://#{bucket_name}/"
+          end
 
-        if $? != 0
-          raise "Unable to get list of existing backups from s3://#{bucket_name}"
-        end
+          # Reduce backups to desired maximum
+          backup_filenames = `#{aws_tool} s3 ls s3://#{bucket_name} --profile #{profile}`.split('\n')
 
-        # backup_filenames = %w(
-        #   'host-database-20160624-002055Z.tar.gz',
-        #   'host-database-20160620-002055Z.tar.gz',
-        #   'host-database-20160621-002055Z.tar.gz',
-        #   'host-database-20160708-002055Z.tar.gz',
-        #   'host-database-20160601-002055Z.tar.gz.save',
-        # )
-        backup_filenames.sort!
-        backup_filenames.delete_if { |f| f.match(/save/) }
-        num_backups_to_delete = backup_filenames.count - max_backups
+          if $? != 0
+            raise "Unable to get list of existing backups from s3://#{bucket_name}"
+          end
 
-        if num_backups_to_delete > 0
-          (0...num_backups_to_delete).each { |i|
-            `#{aws_tool} s3 rm s3://#{bucket_name}/#{backup_filenames[i]} --profile #{profile}`
+          # backup_filenames = %w(
+          #   'host-database-20160624-002055Z.tar.gz',
+          #   'host-database-20160620-002055Z.tar.gz',
+          #   'host-database-20160621-002055Z.tar.gz',
+          #   'host-database-20160708-002055Z.tar.gz',
+          #   'host-database-20160601-002055Z.tar.gz.save',
+          # )
+          backup_filenames.sort!
+          backup_filenames.delete_if { |f| f.match(/save/) }
+          num_backups_to_delete = backup_filenames.count - max_backups
 
-            if $? != 0
-              puts "WARNING: Unable to delete s3://#{bucket_name}/#{backup_filenames[i]}"
+          if num_backups_to_delete > 0
+            (0...num_backups_to_delete).each { |i|
+              `#{aws_tool} s3 rm s3://#{bucket_name}/#{backup_filenames[i]} --profile #{profile}`
+
+              if $? != 0
+                puts "WARNING: Unable to delete s3://#{bucket_name}/#{backup_filenames[i]}"
+              end
+            }
+          end
+
+          backup_status = :succeeded
+        ensure
+          Slack.configure do |config|
+            config.token = slack_api_token
+          end
+
+          unless slack_api_token.nil? or slack_channel.nil?
+            if backup_status == :succeeded
+              message = "MongoDB backup complete"
+              attachments = [
+                {
+                    "color": "good",
+                    "title": "MongoDB Backup Succeeded",
+                    "text": "A backup of database mongodb://#{mongo_server}/#{database} was made from #{local_host_name} to s3://#{bucket_name}/#{backup_filename}",
+                    "ts": Time.now.utc.to_i
+                }
+              ]
+            else
+              message = "MongoDB backup failed"
+              attachments = [
+                  {
+                      "color": "danger",
+                      "title": "MongoDB Backup Failed",
+                      "text": "A backup of database mongodb://#{mongo_server}/#{database} from #{local_host_name} failed.",
+                      "ts": Time.now.utc.to_i
+                  }
+              ]
             end
-          }
+            begin
+              slack = Slack::Web::Client.new
+              slack.chat_postMessage(channel: slack_channel, text: message, attachments: attachments, as_user: true)
+            rescue
+              puts "Unable to send Slack message to #{slack_channel}"
+            end
+          end
         end
-      }
-
-      puts "Backup completed successfully"
-
-      Slack.configure do |config|
-        config.token = slack_api_token
       end
 
-      unless slack_api_token.nil? or slack_channel.nil?
-        # TODO: Finish this...
-        message = "MongoDB backup complete"
-        attachments = [
-            :title => "MongoDB Backup",
-            :text => message,
-            :color => :good,
-        ]
-        slack = Slack::RealTime::Client.new(websocket_ping: 10)
-        slack.web_client.chat_postMessage(channel: slack_channel, text: message, attachments: attachments, as_user: true)
-        slack.close
+      if backup_status == :succeeded
+        puts "Backup was successful"
+      else
+        puts "Backup failed"
       end
-
     end
 
     description 'mongo-backup - Perform backup for a MongoDB database'
