@@ -31,21 +31,20 @@ module AppTools
         exit_now! "Must supply a valid provisioning profile"
       end
 
-      ## Extract the entitlements from the provisioning profile
+      info('Extract the entitlements from the provisioning profile')
       cms_xml = `security cms -D -i "#{profile_path}"`
       cms_data = CFPropertyList.native_types(CFPropertyList::List.new(:data => cms_xml).value)
       entitlements_data = cms_data["Entitlements"]
 
-      ## Get the app PList
+      info('Extracting the app .plist information from the IPA')
       ipa_plist_data = nil
-
       Zip::File.open(ipa_path) do |zip_file|
         entry = zip_file.glob('Payload/*/Info.plist').first
         plist = CFPropertyList::List.new(:data => entry.get_input_stream.read)
         ipa_plist_data = CFPropertyList.native_types(plist.value)
       end
 
-      ## Make sure app id and entitlements id match
+      info('Checking to make sure app id and entitlements id match')
       entitlements_app_id = entitlements_data["application-identifier"]
       ipa_app_id = ipa_plist_data["CFBundleIdentifier"]
 
@@ -53,25 +52,24 @@ module AppTools
           exit_now!("Entitlements app id #{entitlements_app_id} doesn't match Info.plist identifier #{ipa_app_id}")
       end
 
-      ## Creating a temp dir to work in
       temp_dir = File.join(File.dirname(ipa_path), ipa_basename[0...-4] + '.resignipa.tmp')
-      contents_dir = File.join(temp_dir, "Contents")
-
       FileUtils.rm_rf temp_dir
       FileUtils.mkdir temp_dir
+      info("Created a temp dir #{temp_dir}")
 
-      ## Unzip the existing IPA into the temp dir
+      contents_dir = File.join(temp_dir, "Contents")
+
       `unzip #{ipa_path} -d #{contents_dir}`
+      info("Unzipped the existing IPA into #{contents_dir}")
 
-      ## Get all dirs to be signed
-      # See http://www.xgiovio.com/blog-photos-videos-other/blog/resign-your-ios-ipa-frameworks-and-plugins-included/
       payload_dir = File.join(contents_dir, "Payload")
+      info("Created payload directory #{payload_dir}")
 
-      ## Embed the new provisioning profile
+      info("Embedding the new provisioning profile #{profile_path}")
       app_dir = `find -d #{payload_dir} -name \\*.app`.split("\n")
       FileUtils.cp profile_path, File.join(app_dir, "embedded.mobileprovision")
 
-      ## Get the app entitlements if any
+      info("Getting associated-domain app entitlements, if any")
       app_path = `find -d #{payload_dir} -name \\*.app`.chomp
       app_entitlements_xml = `codesign -d --entitlements :- #{app_path}`
 
@@ -81,16 +79,20 @@ module AppTools
         # TODO: What about other values?
         if entitlements_data.has_key? "com.apple.developer.associated-domains"
           entitlements_data["com.apple.developer.associated-domains"] = app_entitlements_data["com.apple.developer.associated-domains"]
+          info("Found and added associated-domain entitlements")
         end
+      else
+        info("No associated-domain entitlements found")
       end
 
-      ## Write the entitlements file
       entitlements_path = File.join(temp_dir, "entitlements.plist")
       File.write(entitlements_path,
           entitlements_data.to_plist(:plist_format => CFPropertyList::List::FORMAT_XML))
+      info("Wrote the entitlements file #{entitlements_path}")
 
-      ## Resign all the frameworks and libraries first ...
-      # http://stackoverflow.com/questions/25297638/how-do-i-codesign-a-swift-app-via-the-commandline
+      info("Resigning all the frameworks and libraries")
+      # See http://www.xgiovio.com/blog-photos-videos-other/blog/resign-your-ios-ipa-frameworks-and-plugins-included/
+      # and http://stackoverflow.com/questions/25297638/how-do-i-codesign-a-swift-app-via-the-commandline
       `find -d #{payload_dir} \\( -name \\*.framework -o -name \\*.dylib \\)`.split("\n").each do |sign_dir|
         # See https://github.com/fastlane/sigh/blob/master/lib/assets/resign.sh#L412
         pid = Process.spawn("codesign", "-f", "-s", certificate_name, sign_dir)
@@ -100,18 +102,18 @@ module AppTools
         end
       end
 
-      ## ... then resign the app
+      info("Resigning the app")
       pid = Process.spawn("codesign", "-f", "-s", certificate_name, "--entitlements", entitlements_path, app_path)
       Process.wait(pid)
       unless $?.exitstatus == 0
         exit_now! "Failed to sign #{sign_dir}"
       end
 
-      ## Repack
       new_ipa_dir = File.join(File.dirname(ipa_path), ipa_basename + '.' + [*('a'..'z'),*('0'..'9')].shuffle[0,8].join)
       new_ipa_path = File.expand_path(File.join(new_ipa_dir, File.basename(ipa_path)))
       FileUtils.rm_rf new_ipa_dir
       FileUtils.mkdir new_ipa_dir
+      info("Repacking #{new_ipa_path}")
 
       # NOTE: The zip tool...
       `cd #{contents_dir}; zip -r #{new_ipa_path} *`

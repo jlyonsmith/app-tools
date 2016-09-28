@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    app-tools (1.17.0)
+    app-tools (1.17.1)
       CFPropertyList (~> 2.3)
       highline (~> 1.7)
       methadone (~> 1.9)
@@ -55,7 +55,7 @@ GEM
     methadone (1.9.2)
       bundler
     mini_portile2 (2.0.0)
-    minitest (5.9.0)
+    minitest (5.9.1)
     mongo (2.3.0)
       bson (~> 4.1)
     multi_xml (0.5.5)
@@ -74,7 +74,7 @@ GEM
       hashie
       json
       websocket-driver
-    spaceship (0.33.0)
+    spaceship (0.34.1)
       colored
       credentials_manager (>= 0.16.0)
       faraday (~> 0.9)
