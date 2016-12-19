@@ -17,6 +17,8 @@ module AppTools
     include Methadone::CLILogging
     include Methadone::ExitNow
 
+    change_logger(Methadone::CLILogger.new($stderr))
+
     main do |xcarchive_path|
       if !Dir.exist?(xcarchive_path) or !File.extname(xcarchive_path) == '.xcarchive'
         exit_now! "Must supply a .xcarchive path to process"

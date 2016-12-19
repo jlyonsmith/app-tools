@@ -18,6 +18,8 @@ module AppTools
     include Methadone::CLILogging
     include Methadone::ExitNow
 
+    change_logger(Methadone::CLILogger.new($stderr))
+
     main do |ipa_path|
       if !File.exist?(ipa_path) or !File.extname(ipa_path) == '.ipa'
         exit_now! "Must supply a .ipa path to process"

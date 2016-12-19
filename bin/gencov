@@ -13,6 +13,8 @@ module AppTools
     include Methadone::CLILogging
     include Methadone::ExitNow
 
+    change_logger(Methadone::CLILogger.new($stderr))
+
     class CovData
       attr_accessor :total_files
       attr_accessor :total_regions

@@ -17,13 +17,7 @@ module AppTools
     include Methadone::CLILogging
     include Methadone::ExitNow
 
-    def self.keep_trying
-      tries ||= 5
-      yield
-    rescue UnexpectedResponse
-      sleep 3
-      retry unless (tries -= 1).zero?
-    end
+    change_logger(Methadone::CLILogger.new($stderr))
 
     main do |profile_name|
       itunes_user = options[:u]
@@ -50,18 +44,11 @@ module AppTools
         exit_now! "No password given and non found in keychain"
       end
 
-      Spaceship.login(itunes_user, itunes_password)
-
-      profile = nil
-
-      # NOTE: Sometimes the call to the Apple API can fail, hence the retries
+      Spaceship::Portal.login(itunes_user, itunes_password)
 
       # Get the provisioning profile that matches the name given
-      keep_trying do
-        profiles = Spaceship.provisioning_profile.all
-        profile = profiles.find do |profile|
-          profile.name == profile_name
-        end
+      profile = Spaceship::Portal.provisioning_profile.all.find do |profile|
+        profile.name == profile_name
       end
 
       if profile.nil?
@@ -83,18 +70,11 @@ module AppTools
       end
 
       # Get the full certificate record
-      cert = nil
-      keep_trying do
-        certs = Spaceship.certificate.all
-        cert = certs.find do |cert|
-          cert.id == profile_cert.id
-        end
+      cert = Spaceship::Portal.certificate.all.find do |cert|
+        cert.id == profile_cert.id
       end
 
-      profile_path = "#{profile_name}.mobileprovision"
-
-      File.write(profile_path, profile.download)
-
+      File.write("#{profile_name}.mobileprovision", profile.download)
       puts "SYNCPP_CERTIFICATE_NAME=\"#{cert.name}\"; SYNCPP_PROFILE_UUID=\"#{profile.uuid}\""
     end
 

@@ -14,6 +14,8 @@ module AppTools
     include Methadone::CLILogging
     include Methadone::ExitNow
 
+    change_logger(Methadone::CLILogger.new($stderr))
+
     def self.find_tool(name, paths)
       paths.each { |path|
         full_path = File.join(path, name)

@@ -12,6 +12,8 @@ module AppTools
     include Methadone::CLILogging
     include Methadone::ExitNow
 
+    change_logger(Methadone::CLILogger.new($stderr))
+
     main do |action|
       itunes_password = options[:p]
       itunes_user = options[:u]
