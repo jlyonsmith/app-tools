@@ -20,7 +20,7 @@ Resign IPA files with correct certificate and provisioning profiles for distribu
   s.add_dependency('methadone', '~> 1.9')
   s.add_dependency('CFPropertyList', '~> 2.3')
   s.add_dependency('rubyzip', '~> 1.1')
-  s.add_dependency('fastlane', '~> 2.1.1')
+  s.add_dependency('fastlane', '~> 2.13')
   s.add_dependency('highline', '~> 1.7')
   s.add_dependency('mongo', '~> 2.3')
   s.add_dependency('slack-ruby-client', '~> 0.7')
