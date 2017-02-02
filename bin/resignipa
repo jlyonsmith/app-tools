@@ -27,7 +27,7 @@ module AppTools
 
       ipa_basename = File.basename(ipa_path)
       profile_path = options[:p]
-      certificate_name = "iPhone Distribution: " + options[:c]
+      certificate_name = options[:c]
 
       unless File.exist?(profile_path)
         exit_now! "Must supply a valid provisioning profile"

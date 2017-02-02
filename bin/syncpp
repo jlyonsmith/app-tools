@@ -74,8 +74,12 @@ module AppTools
         cert.id == profile_cert.id
       end
 
+      #info(cert.inspect)
+
+      cert_prefix = cert.is_a?(Spaceship::Portal::Certificate::Production) ? "iPhone Distribution" : "iPhone Developer"
+
       File.write("#{profile_name}.mobileprovision", profile.download)
-      puts "SYNCPP_CERTIFICATE_NAME=\"#{cert.name}\"; SYNCPP_PROFILE_UUID=\"#{profile.uuid}\""
+      puts "SYNCPP_CERTIFICATE_NAME=\"#{cert_prefix}: #{cert.owner_name} (#{cert.owner_id})\"; SYNCPP_PROFILE_UUID=\"#{profile.uuid}\""
     end
 
     description 'syncpp - Synchronize a certificate and provisioning profile'
